@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+async function safeFetch(url) {
+  const r   = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  const txt = await r.text();
+  try { return JSON.parse(txt); }
+  catch (_) { throw new Error('Non-JSON response from ' + url + ': ' + txt.slice(0, 100)); }
+}
+
 export function useMarketData(refreshSec = 300) {
   const [data,   setData]   = useState(null);
   const [error,  setError]  = useState(null);
@@ -10,9 +17,8 @@ export function useMarketData(refreshSec = 300) {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const r = await fetch('/api/data');
-      const d = await r.json();
-      if (!d.ok) throw new Error(d.error || 'API error');
+      const d = await safeFetch('/api/data');
+      if (!d.ok) throw new Error(d.error || 'API returned error');
       setData(d);
       setLastTs(new Date());
       setError(null);
@@ -30,19 +36,18 @@ export function useMarketData(refreshSec = 300) {
 }
 
 export function useChartData(symbol) {
-  const [chart,   setChart]   = useState(null);
-  const [chartErr,setChartErr]= useState(null);
-  const [chartLoading, setChartLoading] = useState(false);
+  const [chart,        setChart]       = useState(null);
+  const [chartErr,     setChartErr]    = useState(null);
+  const [chartLoading, setChartLoading]= useState(false);
 
   useEffect(() => {
     if (!symbol) return;
     let cancelled = false;
     setChartLoading(true);
-    fetch('/api/chart?symbol=' + encodeURIComponent(symbol))
-      .then(r => r.json())
-      .then(d => { if (!cancelled) { setChart(d); setChartErr(null); } })
+    safeFetch('/api/chart?symbol=' + encodeURIComponent(symbol))
+      .then(d  => { if (!cancelled) { setChart(d); setChartErr(null); } })
       .catch(e => { if (!cancelled) setChartErr(e.message); })
-      .finally(() => { if (!cancelled) setChartLoading(false); });
+      .finally(()=> { if (!cancelled) setChartLoading(false); });
     return () => { cancelled = true; };
   }, [symbol]);
 
