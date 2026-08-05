@@ -68,7 +68,7 @@ export default function CandleChart({ chartData, chartErr, chartLoading, interva
       ro.observe(containerRef.current);
       return () => { ro.disconnect(); if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; } };
     } catch (e) { setInitErr(e.message); }
-  }, [isIntraday]);  // re-create chart when switching intraday ↔ daily (timeVisible change)
+  }, []);  // key prop in parent forces full remount on interval/symbol change
 
   // Update data + annotations when chartData changes
   useEffect(() => {
