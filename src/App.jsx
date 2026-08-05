@@ -127,6 +127,7 @@ export default function App() {
           {/* Center — pass interval so chart shows correct label + timeVisible setting */}
           <div style={{ overflow:'hidden',minHeight:0 }}>
             <CandleChart
+              key={active + '-' + chartInterval}
               chartData={chartData}
               chartErr={chartErr}
               chartLoading={chartLoading}
