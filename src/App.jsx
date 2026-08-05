@@ -5,6 +5,14 @@ import OptionPanel   from './components/OptionPanel';
 import CandleChart   from './components/CandleChart';
 import LevelsOIPanel from './components/LevelsOIPanel';
 
+const INTERVALS = [
+  { key:'5',  label:'5M'  },
+  { key:'15', label:'15M' },
+  { key:'60', label:'1H'  },
+  { key:'D',  label:'D'   },
+  { key:'W',  label:'W'   },
+];
+
 function ScripTab({ scrip, active, onClick }) {
   const fired = scrip.signal?.fired;
   const score = scrip.signal?.confidence || 0;
@@ -25,34 +33,53 @@ function Clock() {
 
 export default function App() {
   const { data,error,loading,lastTs,refresh } = useMarketData(300);
-  const [active,setActive] = useState(null);
+  const [active,   setActive]   = useState(null);
+  const [interval, setInterval] = useState('D');   // default: Daily
 
   const scrips = data?.scrips || [];
   useEffect(()=>{ if(!active && scrips.length) setActive(scrips[0].symbol); },[scrips]);
 
   const scrip = scrips.find(s=>s.symbol===active);
-  const { chart:chartData, chartErr, chartLoading } = useChartData(active);
+  const { chart:chartData, chartErr, chartLoading } = useChartData(active, interval);
 
   const ts = lastTs ? lastTs.toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour12:false}) : '—';
 
-  if(error) return <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'var(--rd)',flexDirection:'column',gap:10,background:'var(--bg)',fontFamily:'monospace',fontSize:12 }}><div>Connection error</div><div style={{ color:'var(--mu)' }}>{error}</div><div style={{ color:'var(--mu)',fontSize:10 }}>Check: SMC_BOT_URL and SMC_BOT_KEY env vars in Vercel</div></div>;
+  if(error) return (
+    <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'var(--rd)',flexDirection:'column',gap:10,background:'var(--bg)',fontFamily:'monospace',fontSize:12 }}>
+      <div>Connection error</div><div style={{ color:'var(--mu)' }}>{error}</div>
+      <div style={{ color:'var(--mu)',fontSize:10 }}>Check SMC_BOT_URL + SMC_BOT_KEY in Vercel env vars</div>
+    </div>
+  );
 
   return (
     <div style={{ display:'flex',flexDirection:'column',height:'100vh',background:'var(--bg)',overflow:'hidden' }}>
       <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{ display:'flex',alignItems:'center',gap:10,padding:'8px 14px',background:'var(--s1)',borderBottom:'1px solid var(--bd)',flexShrink:0 }}>
         <span style={{ fontFamily:'monospace',fontSize:14,fontWeight:700,color:'#fff',letterSpacing:2,flexShrink:0 }}>SMC OPTIONS</span>
         <div style={{ display:'flex',gap:2,flex:1,overflowX:'auto' }}>
           {scrips.map(s=><ScripTab key={s.symbol} scrip={s} active={s.symbol===active} onClick={()=>setActive(s.symbol)} />)}
         </div>
+
+        {/* Interval selector */}
+        <div style={{ display:'flex',gap:2,flexShrink:0,background:'var(--s2)',borderRadius:6,padding:2 }}>
+          {INTERVALS.map(iv=>(
+            <button key={iv.key} onClick={()=>setInterval(iv.key)}
+              style={{ fontSize:10,fontWeight:600,fontFamily:'monospace',padding:'3px 8px',borderRadius:4,border:'none',cursor:'pointer',
+                background: interval===iv.key ? 'var(--bd)' : 'transparent',
+                color:      interval===iv.key ? 'var(--cy)' : 'var(--mu)' }}>
+              {iv.label}
+            </button>
+          ))}
+        </div>
+
         <span style={{ fontSize:10,color:'var(--mu)',flexShrink:0 }}>{loading?'Loading...':'Updated '+ts+' IST'}</span>
         <button onClick={refresh} style={{ fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid var(--bd)',background:'var(--s2)',color:'var(--tx)',cursor:'pointer',flexShrink:0 }}>↻</button>
         <Clock />
       </div>
 
-      {/* Body */}
+      {/* ── Body ── */}
       {loading && !data
         ? <div style={{ display:'flex',alignItems:'center',justifyContent:'center',flex:1,color:'var(--mu)',fontSize:12 }}>Connecting to SMC bot...</div>
         : !scrip
@@ -60,9 +87,9 @@ export default function App() {
           : (
             <div style={{ display:'grid',gridTemplateColumns:'260px 1fr 220px',gap:8,padding:10,flex:1,overflow:'hidden',minHeight:0 }}>
 
-              {/* Left: Trend + Option */}
+              {/* Left */}
               <div style={{ display:'flex',flexDirection:'column',gap:8,overflow:'hidden',minHeight:0 }}>
-                <div style={{ background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px',overflow:'auto',flex:'0 0 auto',maxHeight:'50%' }}>
+                <div style={{ background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px',overflow:'auto',maxHeight:'52%' }}>
                   <TrendPanel scrip={scrip} />
                 </div>
                 <div style={{ background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px',overflow:'auto',flex:1 }}>
@@ -70,17 +97,18 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Center: Chart */}
+              {/* Center — chart gets current interval */}
               <div style={{ overflow:'hidden',minHeight:0 }}>
                 <CandleChart
                   chartData={chartData}
                   chartErr={chartErr}
                   chartLoading={chartLoading}
-                  height={Math.max(400, window.innerHeight - 80)}
+                  interval={interval}
+                  height={window.innerHeight - 80}
                 />
               </div>
 
-              {/* Right: Levels + OI + Narrative */}
+              {/* Right */}
               <div style={{ background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px',overflow:'auto' }}>
                 <LevelsOIPanel scrip={scrip} chartData={chartData} />
               </div>
