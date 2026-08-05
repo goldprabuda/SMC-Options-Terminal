@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useMarketData, useChartData } from './hooks/useData';
+import { useMarketData } from './hooks/useData';
 import TrendPanel    from './components/TrendPanel';
 import OptionPanel   from './components/OptionPanel';
 import CandleChart   from './components/CandleChart';
@@ -50,7 +50,6 @@ export default function App() {
   useEffect(()=>{ if(!active && scrips.length) setActive(scrips[0].symbol); },[scrips]);
 
   const scrip = scrips.find(s=>s.symbol===active);
-  const { chart:chartData, chartErr, chartLoading } = useChartData(active, chartInterval);
 
   const ts = lastTs ? lastTs.toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour12:false}) : '—';
 
@@ -128,9 +127,7 @@ export default function App() {
           <div style={{ overflow:'hidden',minHeight:0 }}>
             <CandleChart
               key={active + '-' + chartInterval}
-              chartData={chartData}
-              chartErr={chartErr}
-              chartLoading={chartLoading}
+              symbol={active}
               interval={chartInterval}
               height={window.innerHeight - 80}
             />
@@ -138,7 +135,7 @@ export default function App() {
 
           {/* Right */}
           <div style={{ background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px',overflow:'auto' }}>
-            <LevelsOIPanel scrip={scrip} chartData={chartData} />
+            <LevelsOIPanel scrip={scrip} />
           </div>
 
         </div>
