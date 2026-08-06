@@ -1,14 +1,8 @@
 import React from 'react';
 
-// Split narrative into readable bullet points. Handles both plain sentences
-// and the rule-based fallback narrative's own line-break structure.
 function toBullets(text) {
   if (!text) return [];
-  // If the narrative already has line breaks (rule-based fallback), use those
-  if (text.includes('\n')) {
-    return text.split('\n').map(l => l.trim()).filter(Boolean);
-  }
-  // Otherwise split on sentence boundaries
+  if (text.includes('\n')) return text.split('\n').map(l => l.trim()).filter(Boolean);
   return text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 3);
 }
 
@@ -17,8 +11,7 @@ export default function AIPanel({ scrip }) {
   const bullets = toBullets(narrative);
 
   return (
-    <div style={{ height:'100%', minHeight:0, background:'var(--s1)', border:'1px solid var(--bd)', borderTop:'2px solid #a855f7',
-      borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', minHeight:0 }}>
       <div style={{ fontSize:9, color:'#c084fc', letterSpacing:1.2, textTransform:'uppercase', fontWeight:700, marginBottom:10, flexShrink:0 }}>
         AI Analysis
       </div>
