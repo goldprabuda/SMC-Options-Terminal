@@ -41,19 +41,28 @@ function Clock() {
   return <span style={{ fontFamily:'monospace',fontSize:11,color:'var(--cy)',flexShrink:0 }}>IST {t}</span>;
 }
 
+// Panel wrapper — consistent card chrome for the top-row panels
+function Panel({ title, children, accent }) {
+  return (
+    <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderTop: accent ? '2px solid '+accent : '1px solid var(--bd)',
+      borderRadius:10, padding:'12px 14px', overflow:'auto', display:'flex', flexDirection:'column', minHeight:0 }}>
+      {children}
+    </div>
+  );
+}
+
 export default function App() {
-  const { data,error,loading,lastTs,refresh } = useMarketData(300);
-  const [active,       setActive]       = useState(null);
-  const [chartInterval,setChartInterval]= useState('D');  // renamed — avoids window.setInterval conflict
+  const { data, error, loading, lastTs, refresh } = useMarketData(300);
+  const [active,        setActive]        = useState(null);
+  const [chartInterval, setChartInterval] = useState('D');
 
   const scrips = data?.scrips || [];
-  useEffect(()=>{ if(!active && scrips.length) setActive(scrips[0].symbol); },[scrips]);
-
-  const scrip = scrips.find(s=>s.symbol===active);
+  useEffect(() => { if (!active && scrips.length) setActive(scrips[0].symbol); }, [scrips]);
+  const scrip = scrips.find(s => s.symbol === active);
 
   const ts = lastTs ? lastTs.toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour12:false}) : '—';
 
-  if(error) return (
+  if (error) return (
     <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',
       color:'var(--rd)',flexDirection:'column',gap:10,background:'var(--bg)',fontFamily:'monospace',fontSize:12 }}>
       <div>Connection error</div>
@@ -62,80 +71,66 @@ export default function App() {
     </div>
   );
 
+  const sig = scrip?.signal;
+  const signalAccent = sig?.fired ? 'var(--gr)' : (sig?.confidence >= 60 ? 'var(--am)' : 'var(--bd)');
+  const optAccent = sig?.optionAdvice
+    ? (sig.optionAdvice.optionType === 'CE' ? 'var(--gr)' : 'var(--rd)')
+    : 'var(--bd)';
+
   return (
-    <div style={{ display:'flex',flexDirection:'column',height:'100vh',background:'var(--bg)',overflow:'hidden' }}>
-      <style>{`
-        @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-      `}</style>
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', overflow:'hidden' }}>
+      <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-      {/* Header */}
-      <div style={{ display:'flex',alignItems:'center',gap:10,padding:'8px 14px',background:'var(--s1)',borderBottom:'1px solid var(--bd)',flexShrink:0 }}>
-        <span style={{ fontFamily:'monospace',fontSize:14,fontWeight:700,color:'#fff',letterSpacing:2,flexShrink:0 }}>SMC OPTIONS</span>
-
-        {/* Scrip tabs */}
-        <div style={{ display:'flex',gap:2,flex:1,overflowX:'auto' }}>
-          {scrips.map(s=>(
-            <ScripTab key={s.symbol} scrip={s} active={s.symbol===active} onClick={()=>setActive(s.symbol)} />
-          ))}
+      {/* Header — scrip tabs + interval selector */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', background:'var(--s1)', borderBottom:'1px solid var(--bd)', flexShrink:0 }}>
+        <span style={{ fontFamily:'monospace', fontSize:14, fontWeight:700, color:'#fff', letterSpacing:2, flexShrink:0 }}>SMC OPTIONS</span>
+        <div style={{ display:'flex', gap:2, flex:1, overflowX:'auto' }}>
+          {scrips.map(s => <ScripTab key={s.symbol} scrip={s} active={s.symbol===active} onClick={()=>setActive(s.symbol)} />)}
         </div>
-
-        {/* Interval selector — uses setChartInterval not setInterval */}
-        <div style={{ display:'flex',gap:2,flexShrink:0,background:'var(--s2)',borderRadius:6,padding:2,border:'1px solid var(--bd)' }}>
-          {INTERVALS.map(iv=>(
-            <button key={iv.key}
-              onClick={()=> setChartInterval(iv.key)}
+        <div style={{ display:'flex', gap:2, flexShrink:0, background:'var(--s2)', borderRadius:6, padding:2, border:'1px solid var(--bd)' }}>
+          {INTERVALS.map(iv => (
+            <button key={iv.key} onClick={()=>setChartInterval(iv.key)}
               style={{ fontSize:10,fontWeight:600,fontFamily:'monospace',padding:'3px 9px',borderRadius:4,border:'none',cursor:'pointer',
                 background: chartInterval===iv.key ? 'var(--cy)' : 'transparent',
-                color:      chartInterval===iv.key ? '#000'      : 'var(--mu)',
-                transition:'all .15s' }}>
+                color:      chartInterval===iv.key ? '#000'      : 'var(--mu)' }}>
               {iv.label}
             </button>
           ))}
         </div>
-
-        <span style={{ fontSize:10,color:'var(--mu)',flexShrink:0 }}>
-          {loading ? 'Loading...' : 'Updated '+ts+' IST'}
-        </span>
+        <span style={{ fontSize:10, color:'var(--mu)', flexShrink:0 }}>{loading ? 'Loading...' : 'Updated '+ts+' IST'}</span>
         <button onClick={refresh} style={{ fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid var(--bd)',background:'var(--s2)',color:'var(--tx)',cursor:'pointer',flexShrink:0 }}>↻</button>
         <Clock />
       </div>
 
       {/* Body */}
       {loading && !data ? (
-        <div style={{ display:'flex',alignItems:'center',justifyContent:'center',flex:1,color:'var(--mu)',fontSize:12 }}>
-          Connecting to SMC bot...
-        </div>
+        <div style={{ display:'flex',alignItems:'center',justifyContent:'center',flex:1,color:'var(--mu)',fontSize:12 }}>Connecting to SMC bot...</div>
       ) : !scrip ? (
-        <div style={{ display:'flex',alignItems:'center',justifyContent:'center',flex:1,color:'var(--mu)',fontSize:12 }}>
-          No data — trigger a cron run from GitHub Actions
-        </div>
+        <div style={{ display:'flex',alignItems:'center',justifyContent:'center',flex:1,color:'var(--mu)',fontSize:12 }}>No data — trigger a cron run from GitHub Actions</div>
       ) : (
-        <div style={{ display:'grid',gridTemplateColumns:'260px 1fr 220px',gap:8,padding:10,flex:1,overflow:'hidden',minHeight:0 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:8, padding:10, flex:1, overflow:'hidden', minHeight:0 }}>
 
-          {/* Left */}
-          <div style={{ display:'flex',flexDirection:'column',gap:8,overflow:'hidden',minHeight:0 }}>
-            <div style={{ background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px',overflow:'auto',maxHeight:'52%' }}>
+          {/* TOP ROW — 3 decision panels, equal width */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, flex:'0 0 auto', maxHeight:'40%', minHeight:220 }}>
+            <Panel accent={signalAccent}>
               <TrendPanel scrip={scrip} />
-            </div>
-            <div style={{ background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px',overflow:'auto',flex:1 }}>
+            </Panel>
+            <Panel accent={optAccent}>
               <OptionPanel scrip={scrip} />
-            </div>
+            </Panel>
+            <Panel accent="var(--cy)">
+              <LevelsOIPanel scrip={scrip} />
+            </Panel>
           </div>
 
-          {/* Center — pass interval so chart shows correct label + timeVisible setting */}
-          <div style={{ overflow:'hidden',minHeight:0 }}>
+          {/* BOTTOM — full-width chart, takes remaining space */}
+          <div style={{ flex:1, minHeight:0 }}>
             <CandleChart
               key={active + '-' + chartInterval}
               symbol={active}
               interval={chartInterval}
-              height={window.innerHeight - 80}
+              height="100%"
             />
-          </div>
-
-          {/* Right */}
-          <div style={{ background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'12px 14px',overflow:'auto' }}>
-            <LevelsOIPanel scrip={scrip} />
           </div>
 
         </div>
