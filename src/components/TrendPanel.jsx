@@ -1,20 +1,18 @@
 import React from 'react';
 
-const DIM_LABELS = {
-  ema:'Trend', macd:'Momentum', rsi:'Strength', vwap:'VWAP', volume:'Volume', mtf:'MTF'
-};
+const DIM_ORDER  = ['ema','macd','rsi','vwap','volume','mtf'];
+const DIM_LABELS = { ema:'EMA', macd:'MACD', rsi:'RSI', vwap:'VWAP', volume:'VOL', mtf:'MTF' };
 const CHK_LABELS = {
   direction:'Direction', htfAlignment:'HTF', levels:'Value zone', volatility:'IV',
   theta:'DTE', liquidity:'Liquidity', momentum:'Momentum', risk:'Risk'
 };
 const CHK_ICONS = { pass:'✓', fail:'✗', warn:'!', unknown:'?' };
 
-function ScoreBar({ score, max }) {
-  const pct = max ? (score/max)*100 : 0;
-  const color = score===max ? '#22c55e' : score>0 ? '#f59e0b' : '#ef4444';
+function GridCell({ label, value, color, border }) {
   return (
-    <div style={{ height:4, background:'#252936', borderRadius:2, overflow:'hidden', flex:1 }}>
-      <div style={{ height:4, width:pct+'%', background:color, borderRadius:2 }} />
+    <div style={{ border:'1px solid '+(border||'var(--bd)'), borderRadius:6, padding:'6px 4px', textAlign:'center', flex:1, minWidth:0 }}>
+      <div style={{ fontSize:8, color:'var(--mu)', marginBottom:2, letterSpacing:.5 }}>{label}</div>
+      <div style={{ fontFamily:'monospace', fontSize:13, fontWeight:700, color: color||'var(--tx)' }}>{value}</div>
     </div>
   );
 }
@@ -26,22 +24,68 @@ export default function TrendPanel({ scrip }) {
   const chk = scrip.checklist || {};
   const scores = sig.scores || {};
 
-  const trendUp   = scrip.trend === 'up';
-  const trendColor = trendUp ? 'var(--gr)' : scrip.trend==='down' ? 'var(--rd)' : 'var(--mu)';
-  const trendLabel = trendUp ? '↑ UP' : scrip.trend==='down' ? '↓ DOWN' : '→ FLAT';
-  const fired  = sig.fired;
-  const conf   = sig.confidence || 0;
+  const trendUp = scrip.trend === 'up';
+  const fired   = sig.fired;
+  const conf    = sig.confidence || 0;
+
+  // Dramatic headline logic — mirrors "STRONG BUY CE" style
+  let headline, headColor;
+  if (fired) {
+    headline  = (conf >= 85 ? 'STRONG ' : '') + (trendUp ? 'BUY CALL' : 'BUY PUT');
+    headColor = trendUp ? 'var(--gr)' : 'var(--rd)';
+  } else if (conf >= 60) {
+    headline  = 'WATCHING ' + (trendUp ? 'UP' : 'DOWN');
+    headColor = 'var(--am)';
+  } else {
+    headline  = 'NO SETUP';
+    headColor = 'var(--mu)';
+  }
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:6, height:'100%', minHeight:0 }}>
 
-      {/* Checklist — moved to top, compact chips */}
+      {/* Big dramatic headline */}
+      <div style={{ flexShrink:0 }}>
+        <div style={{ fontSize:20, fontWeight:800, letterSpacing:.5, color:headColor, lineHeight:1.1 }}>
+          {headline}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3 }}>
+          <span style={{ fontSize:9, padding:'2px 7px', borderRadius:4, background:'var(--s2)', border:'1px solid var(--bd)', color:'var(--cy)', fontWeight:700 }}>
+            {sig.scoreLabel || '—/—'} · {conf}%
+          </span>
+          {sig.bodyRatio != null && (
+            <span style={{ fontSize:9, color:'var(--mu)' }}>body {sig.bodyRatio}%</span>
+          )}
+        </div>
+      </div>
+
+      {/* Retest / reason line */}
+      {fired && sig.retest?.type && sig.retest.type !== 'none' ? (
+        <div style={{ fontSize:9, color:'var(--bl)', background:'rgba(59,130,246,.1)', borderRadius:5, padding:'4px 8px', flexShrink:0 }}>
+          {sig.retest.type} retest @ ₹{sig.retest.level?.toLocaleString('en-IN',{maximumFractionDigits:0})}
+        </div>
+      ) : !fired && sig.reason ? (
+        <div style={{ fontSize:9, color:'var(--mu)', lineHeight:1.4, flexShrink:0 }}>{sig.reason.slice(0,85)}</div>
+      ) : null}
+
+      {/* Grid cells — T1 / T2 / SL / R:R (only when fired) */}
+      {fired && sig.entry ? (
+        <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+          <GridCell label="ENTRY" value={'₹'+Math.round((sig.entry.low+sig.entry.high)/2).toLocaleString('en-IN')} color="var(--bl)" border="rgba(59,130,246,.4)" />
+          <GridCell label="T1"    value={'+'+Math.round(sig.t1 - (sig.entry.low+sig.entry.high)/2)}  color="var(--gr)" border="rgba(34,197,94,.4)" />
+          <GridCell label="T2"    value={'+'+Math.round(sig.t2 - (sig.entry.low+sig.entry.high)/2)}  color="var(--cy)" border="rgba(6,182,212,.4)" />
+          <GridCell label="SL"    value={Math.round(sig.sl - (sig.entry.low+sig.entry.high)/2)}       color="var(--rd)" border="rgba(239,68,68,.4)" />
+          <GridCell label="R:R"   value={sig.rr+'×'} color="var(--am)" border="rgba(245,158,11,.4)" />
+        </div>
+      ) : null}
+
+      {/* Checklist — compact chips */}
       {chk.items && (
         <div style={{ flexShrink:0 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-            <span style={{ fontSize:9, color:'var(--mu)', letterSpacing:1, textTransform:'uppercase' }}>Checklist</span>
-            <span style={{ fontFamily:'monospace', fontSize:10, fontWeight:700, color: chk.clearToTrade?'var(--gr)':'var(--rd)' }}>
-              {chk.passed}/{(chk.passed||0)+(chk.failed||0)} {chk.clearToTrade?'CLEAR':'NOT CLEAR'}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+            <span style={{ fontSize:8, color:'var(--mu)', letterSpacing:1, textTransform:'uppercase' }}>Checklist</span>
+            <span style={{ fontFamily:'monospace', fontSize:9, fontWeight:700, color: chk.clearToTrade?'var(--gr)':'var(--rd)' }}>
+              {chk.passed}/{(chk.passed||0)+(chk.failed||0)} {chk.clearToTrade?'✓ CLEAR':'✗ NOT CLEAR'}
             </span>
           </div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
@@ -49,7 +93,7 @@ export default function TrendPanel({ scrip }) {
               const bg = v.status==='pass'?'rgba(34,197,94,.12)':v.status==='fail'?'rgba(239,68,68,.12)':v.status==='warn'?'rgba(245,158,11,.12)':'var(--s2)';
               const color = v.status==='pass'?'var(--gr)':v.status==='fail'?'var(--rd)':v.status==='warn'?'var(--am)':'var(--mu)';
               return (
-                <span key={k} title={v.note||''} style={{ fontSize:8, padding:'1px 5px', borderRadius:8, background:bg, color, fontWeight:600, cursor:'default' }}>
+                <span key={k} title={v.note||''} style={{ fontSize:8, padding:'1px 5px', borderRadius:8, background:bg, color, fontWeight:600 }}>
                   {CHK_ICONS[v.status]||'?'} {CHK_LABELS[k]||k}
                 </span>
               );
@@ -58,47 +102,30 @@ export default function TrendPanel({ scrip }) {
         </div>
       )}
 
-      {/* Trend + score — compact single row */}
-      <div style={{ background:'var(--s2)', borderRadius:6, padding:'8px 10px', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <span style={{ fontSize:15, fontWeight:700, color:trendColor }}>{trendLabel}</span>
-        <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
-          <span style={{ fontFamily:'monospace', fontSize:16, fontWeight:700, color: fired?'var(--gr)':conf>=60?'var(--am)':'var(--tx)' }}>{sig.scoreLabel||'—/—'}</span>
-          <span style={{ fontSize:9, color:'var(--mu)' }}>{fired?'FIRED':conf>=60?'watching':'no signal'}</span>
-        </div>
-      </div>
+      {/* Spacer pushes indicator strip to bottom */}
+      <div style={{ flex:1, minHeight:4 }} />
 
-      {/* Retest note */}
-      {fired && sig.retest?.type && sig.retest.type!=='none' && (
-        <div style={{ padding:'4px 8px', background:'rgba(59,130,246,.1)', borderRadius:5, borderLeft:'2px solid var(--bl)', fontSize:10, color:'var(--bl)', flexShrink:0 }}>
-          {sig.retest.type} retest @ ₹{sig.retest.level?.toLocaleString('en-IN',{maximumFractionDigits:0})}
-        </div>
-      )}
-      {!fired && sig.reason && (
-        <div style={{ fontSize:9, color:'var(--mu)', lineHeight:1.4, flexShrink:0 }}>{sig.reason.slice(0,90)}</div>
-      )}
-
-      {/* Score breakdown — compact 2-column grid */}
+      {/* Bottom indicator strip — colored bars + labels, matching reference style */}
       {Object.keys(scores).length > 0 && (
-        <div style={{ flex:1, minHeight:0, overflow:'auto' }}>
-          <div style={{ fontSize:9, color:'var(--mu)', letterSpacing:1, textTransform:'uppercase', marginBottom:4 }}>Score breakdown</div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 8px' }}>
-            {Object.entries(scores).map(([k,v]) => (
-              <div key={k} style={{ display:'flex', alignItems:'center', gap:4 }}>
-                <span style={{ fontSize:9, color:'var(--mu)', width:52, flexShrink:0 }}>{DIM_LABELS[k]||k}</span>
-                <ScoreBar score={v.score} max={v.max} />
-                <span style={{ fontFamily:'monospace', fontSize:9, width:20, textAlign:'right', color: v.score===v.max?'var(--gr)':v.score>0?'var(--am)':'var(--rd)' }}>{v.score}/{v.max}</span>
-              </div>
-            ))}
+        <div style={{ flexShrink:0 }}>
+          <div style={{ display:'flex', gap:2, marginBottom:4 }}>
+            {DIM_ORDER.map(k => {
+              const v = scores[k];
+              if (!v) return <div key={k} style={{ flex:1, height:4, borderRadius:2, background:'var(--s2)' }} />;
+              const color = v.score===v.max ? 'var(--gr)' : v.score>0 ? 'var(--am)' : 'var(--s2)';
+              return <div key={k} style={{ flex:1, height:4, borderRadius:2, background:color }} />;
+            })}
           </div>
-        </div>
-      )}
-
-      {/* Trade plan — only if fired, compact */}
-      {fired && sig.entry && (
-        <div style={{ background:'rgba(34,197,94,.06)', border:'1px solid rgba(34,197,94,.2)', borderRadius:6, padding:'6px 8px', flexShrink:0, fontSize:10 }}>
-          <div style={{ display:'flex', justifyContent:'space-between' }}>
-            <span style={{ color:'var(--mu)' }}>Entry ₹{sig.entry.low?.toLocaleString('en-IN',{maximumFractionDigits:0})}-{sig.entry.high?.toLocaleString('en-IN',{maximumFractionDigits:0})}</span>
-            <span style={{ color:'var(--gr)', fontWeight:700 }}>R:R {sig.rr}×</span>
+          <div style={{ display:'flex', gap:2 }}>
+            {DIM_ORDER.map(k => {
+              const v = scores[k];
+              const color = v ? (v.score===v.max ? 'var(--gr)' : v.score>0 ? 'var(--am)' : 'var(--mu)') : 'var(--mu)';
+              return (
+                <span key={k} title={v?.note||''} style={{ flex:1, fontSize:8, fontWeight:700, textAlign:'center', color, letterSpacing:.3 }}>
+                  {DIM_LABELS[k]}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
