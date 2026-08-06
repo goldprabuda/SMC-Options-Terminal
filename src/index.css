@@ -8,3 +8,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--tx); font-family: 'Inter', system-ui, sans-serif; font-size: 13px; height: 100vh; overflow: hidden; }
 ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: var(--s1); } ::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 2px; }
+
+
+/* Safety net for nested flex/grid layouts — prevents children from
+   ignoring their track/flex-basis size and causing overflow/clipping bugs */
+* { min-width: 0; }
+html, body, #root { height: 100%; }
