@@ -79,23 +79,24 @@ export default function TrendPanel({ scrip }) {
         </div>
       ) : null}
 
-      {/* Checklist — compact chips */}
+      {/* Checklist — full-width rows, simple icon, no tracker chips */}
       {chk.items && (
         <div style={{ flexShrink:0 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
             <span style={{ fontSize:8, color:'var(--mu)', letterSpacing:1, textTransform:'uppercase' }}>Checklist</span>
             <span style={{ fontFamily:'monospace', fontSize:9, fontWeight:700, color: chk.clearToTrade?'var(--gr)':'var(--rd)' }}>
-              {chk.passed}/{(chk.passed||0)+(chk.failed||0)} {chk.clearToTrade?'✓ CLEAR':'✗ NOT CLEAR'}
+              {chk.passed}/{(chk.passed||0)+(chk.failed||0)} {chk.clearToTrade?'CLEAR':'NOT CLEAR'}
             </span>
           </div>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'3px 8px' }}>
             {Object.entries(chk.items).map(([k,v]) => {
-              const bg = v.status==='pass'?'rgba(34,197,94,.12)':v.status==='fail'?'rgba(239,68,68,.12)':v.status==='warn'?'rgba(245,158,11,.12)':'var(--s2)';
               const color = v.status==='pass'?'var(--gr)':v.status==='fail'?'var(--rd)':v.status==='warn'?'var(--am)':'var(--mu)';
+              const icon  = v.status==='pass'?'✓':v.status==='fail'?'✗':'–';
               return (
-                <span key={k} title={v.note||''} style={{ fontSize:8, padding:'1px 5px', borderRadius:8, background:bg, color, fontWeight:600 }}>
-                  {CHK_ICONS[v.status]||'?'} {CHK_LABELS[k]||k}
-                </span>
+                <div key={k} title={v.note||''} style={{ display:'flex', alignItems:'center', gap:5, padding:'2px 0' }}>
+                  <span style={{ color, fontWeight:700, fontSize:11, width:12, flexShrink:0 }}>{icon}</span>
+                  <span style={{ fontSize:9, color:'var(--tx)' }}>{CHK_LABELS[k]||k}</span>
+                </div>
               );
             })}
           </div>
