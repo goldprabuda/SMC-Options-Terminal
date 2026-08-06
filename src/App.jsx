@@ -111,7 +111,7 @@ export default function App() {
         <div style={{ display:'flex', flexDirection:'column', gap:8, padding:10, flex:1, overflow:'hidden', minHeight:0 }}>
 
           {/* TOP ROW — 3 decision panels, equal width */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, flex:'0 0 auto', maxHeight:'40%', minHeight:220 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, flex:'0 0 auto', maxHeight:'44%', minHeight:260 }}>
             <Panel accent={signalAccent}>
               <TrendPanel scrip={scrip} />
             </Panel>
