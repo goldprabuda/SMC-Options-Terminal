@@ -62,9 +62,10 @@ export default function CandleChart({ symbol, interval = 'D', height = 420 }) {
     if (!containerRef.current) return;
 
     const isIntraday = INTRADAY.has(interval);
+    const initialHeight = containerRef.current.clientHeight || 400;
     const chart = createChart(containerRef.current, {
       width:  containerRef.current.clientWidth || 600,
-      height: height - 44,
+      height: Math.max(200, initialHeight - 4),
       layout: { background: { color: C.bg }, textColor: C.text },
       grid:   { vertLines: { color: C.grid }, horzLines: { color: C.grid } },
       crosshair:       { mode: CrosshairMode.Normal },
@@ -90,7 +91,8 @@ export default function CandleChart({ symbol, interval = 'D', height = 420 }) {
 
     const ro = new ResizeObserver(entries => {
       if (chartRef.current && entries[0]) {
-        chartRef.current.applyOptions({ width: entries[0].contentRect.width });
+        const { width, height: h } = entries[0].contentRect;
+        chartRef.current.applyOptions({ width, height: Math.max(200, h) });
       }
     });
     ro.observe(containerRef.current);
@@ -168,7 +170,7 @@ export default function CandleChart({ symbol, interval = 'D', height = 420 }) {
   const trendColor= trend === 'up' ? 'var(--gr)' : 'var(--rd)';
 
   return (
-    <div style={{ height, background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:8, display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
+    <div style={{ height, minHeight:0, background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:8, display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* Header */}
@@ -208,7 +210,7 @@ export default function CandleChart({ symbol, interval = 'D', height = 420 }) {
       )}
 
       {/* Canvas — always mounted */}
-      <div ref={containerRef} style={{ flex:1 }} />
+      <div ref={containerRef} style={{ flex:1, minHeight:0 }} />
     </div>
   );
 }
