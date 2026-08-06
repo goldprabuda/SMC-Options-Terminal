@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useMarketData } from './hooks/useData';
-import TrendPanel  from './components/TrendPanel';
-import OptionPanel from './components/OptionPanel';
-import OIPanel     from './components/OIPanel';
-import AIPanel      from './components/AIPanel';
-import CandleChart from './components/CandleChart';
+import ChecklistPanel from './components/ChecklistPanel';
+import OptionPanel    from './components/OptionPanel';
+import LevelsPanel    from './components/LevelsPanel';
+import NewsPanel      from './components/NewsPanel';
+import OIPanel        from './components/OIPanel';
+import AIPanel        from './components/AIPanel';
+import CandleChart    from './components/CandleChart';
 
 const INTERVALS = [
   { key:'5',  label:'5M'  }, { key:'15', label:'15M' }, { key:'60', label:'1H' },
@@ -37,10 +39,18 @@ function Clock() {
   return <span style={{ fontFamily:'monospace',fontSize:11,color:'var(--cy)',flexShrink:0 }}>IST {t}</span>;
 }
 
-function Panel({ children, accent }) {
+// Panel wrapper — every grid cell gets this exact chrome + safe overflow handling
+function Cell({ area, accent, children }) {
   return (
-    <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderTop: accent?'2px solid '+accent:'1px solid var(--bd)',
-      borderRadius:10, padding:'10px 12px', overflow:'auto', display:'flex', flexDirection:'column', minHeight:0 }}>
+    <div style={{
+      gridArea: area,
+      background:'var(--s1)', border:'1px solid var(--bd)',
+      borderTop: accent ? '2px solid '+accent : '1px solid var(--bd)',
+      borderRadius:10, padding:'10px 12px',
+      minWidth:0, minHeight:0,     // ← critical: prevents grid/flex children from ignoring their track size
+      overflow:'hidden',           // outer clips; inner content scrolls via its own overflow:auto
+      display:'flex', flexDirection:'column',
+    }}>
       {children}
     </div>
   );
@@ -99,35 +109,28 @@ export default function App() {
       ) : !scrip ? (
         <div style={{ display:'flex',alignItems:'center',justifyContent:'center',flex:1,color:'var(--mu)',fontSize:12 }}>No data — trigger a cron run</div>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:8, padding:10, flex:1, overflow:'hidden', minHeight:0 }}>
-
-          {/* TOP ROW — Left col (Setup + OI stacked) | Middle (Option, wider) */}
-          <div style={{ display:'grid', gridTemplateColumns:'280px 1fr', gap:8, flex:'0 0 auto', maxHeight:'46%', minHeight:280 }}>
-
-            {/* Left column: Setup (top) + OI (bottom) stacked */}
-            <div style={{ display:'flex', flexDirection:'column', gap:8, minHeight:0 }}>
-              <Panel accent={signalAccent}>
-                <TrendPanel scrip={scrip} />
-              </Panel>
-              <div style={{ flex:1, minHeight:0 }}>
-                <Panel accent="var(--cy)">
-                  <OIPanel symbol={active} />
-                </Panel>
-              </div>
-            </div>
-
-            {/* Option box — now wider since only 2 top columns */}
-            <Panel accent={optAccent}>
-              <OptionPanel scrip={scrip} />
-            </Panel>
-          </div>
-
-          {/* BOTTOM ROW — Chart (wide) | AI recommendation (sidebar) */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 280px', gap:8, flex:1, minHeight:0 }}>
+        // SINGLE CSS Grid for the entire dashboard — no nested flex-in-grid-in-flex.
+        // Fixed pixel row height for row 1 avoids the percentage-of-indefinite-height
+        // bug that caused panels to render at partial size until zoomed out.
+        <div style={{
+          display:'grid',
+          gridTemplateColumns: '230px 1fr 190px 230px',
+          gridTemplateRows:    '300px 1fr',
+          gridTemplateAreas: `
+            "checklist option levels news"
+            "oi        chart  chart  ai"
+          `,
+          gap:8, padding:10, flex:1, minHeight:0, minWidth:0, overflow:'hidden',
+        }}>
+          <Cell area="checklist" accent={signalAccent}><ChecklistPanel scrip={scrip} /></Cell>
+          <Cell area="option"    accent={optAccent}><OptionPanel scrip={scrip} /></Cell>
+          <Cell area="levels"    accent="var(--bd)"><LevelsPanel scrip={scrip} /></Cell>
+          <Cell area="news"      accent="var(--bd)"><NewsPanel scrip={scrip} /></Cell>
+          <Cell area="oi"        accent="var(--cy)"><OIPanel symbol={active} /></Cell>
+          <div style={{ gridArea:'chart', minWidth:0, minHeight:0, overflow:'hidden' }}>
             <CandleChart key={active + '-' + chartInterval} symbol={active} interval={chartInterval} height="100%" />
-            <AIPanel scrip={scrip} />
           </div>
-
+          <Cell area="ai" accent="#a855f7"><AIPanel scrip={scrip} /></Cell>
         </div>
       )}
     </div>
