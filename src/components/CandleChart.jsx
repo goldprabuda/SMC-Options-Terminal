@@ -70,7 +70,25 @@ export default function CandleChart({ symbol, interval = 'D', height = 420 }) {
       grid:   { vertLines: { color: C.grid }, horzLines: { color: C.grid } },
       crosshair:       { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: C.grid, scaleMargins: { top: 0.06, bottom: 0.22 } },
-      timeScale:       { borderColor: C.grid, timeVisible: isIntraday, secondsVisible: false },
+      // Force IST display regardless of browser/server timezone — epoch
+      // timestamps are correct UTC instants, but labels must always read as IST.
+      localization: {
+        timeFormatter: (time) => new Date(time * 1000).toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata', hour12: false,
+          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+        }),
+      },
+      timeScale: {
+        borderColor: C.grid,
+        timeVisible: isIntraday,
+        secondsVisible: false,
+        tickMarkFormatter: (time) => {
+          const d = new Date(time * 1000);
+          return isIntraday
+            ? d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit' })
+            : d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: '2-digit' });
+        },
+      },
     });
 
     const cSeries = chart.addCandlestickSeries({
