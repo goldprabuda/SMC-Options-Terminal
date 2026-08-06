@@ -45,7 +45,7 @@ function OIRow({ strike, ceOI, peOI, ceChange, peChange, isATM }) {
   );
 }
 
-export default function LevelsOIPanel({ scrip, chartData }) {
+export default function LevelsOIPanel({ scrip }) {
   const liq = scrip?.liquidity || {};
   const ob  = scrip?.orderBlocks || {};
   const pd  = scrip?.premiumDiscount || {};
@@ -67,7 +67,6 @@ export default function LevelsOIPanel({ scrip, chartData }) {
   if (rangeLow)            levels.push({ t:'N', p:rangeLow,                       l:'LOW' });
 
   // OI data from option chain
-  const ann    = chartData?.annotations;
   const rawOI  = scrip?.signal?.optionAdvice;
 
   // Fake OI bars for now — real OI comes from rawChain but that's not in cache
