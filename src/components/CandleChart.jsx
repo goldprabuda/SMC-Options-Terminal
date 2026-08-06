@@ -13,10 +13,15 @@ const INTRADAY        = new Set(['5','15','60']);
 
 async function fetchChartData(symbol, interval) {
   const url = '/api/chart?symbol=' + encodeURIComponent(symbol) +
-              '&interval=' + encodeURIComponent(interval);
-  const r   = await fetch(url, { signal: AbortSignal.timeout(20000) });
+              '&interval=' + encodeURIComponent(interval) +
+              '&_t=' + Date.now();   // cache-bust every request
+  const r   = await fetch(url, { signal: AbortSignal.timeout(20000), cache: 'no-store' });
   const txt = await r.text();
-  try { return JSON.parse(txt); }
+  try {
+    const d = JSON.parse(txt);
+    console.log('[CandleChart] fetched', symbol, interval, '→', d.candles?.length, 'candles', d._debug);
+    return d;
+  }
   catch (_) { throw new Error(txt.slice(0,100)); }
 }
 
@@ -171,6 +176,11 @@ export default function CandleChart({ symbol, interval = 'D', height = 420 }) {
         <span style={{ fontFamily:'monospace', fontSize:11, fontWeight:600, color:'var(--tx)' }}>
           {symLabel} · <span style={{ color:'var(--cy)' }}>{ivLabel}</span>
           {trendText && <span style={{ color:trendColor }}> · {trendText}</span>}
+          {chartData?._debug && (
+            <span style={{ fontSize:9, color:'var(--mu)', marginLeft:8, fontWeight:400 }}>
+              ({chartData._debug.candleCount} candles · {chartData._debug.firstDate?.slice(0,10)} → {chartData._debug.lastDate?.slice(0,16).replace('T',' ')})
+            </span>
+          )}
         </span>
         <div style={{ display:'flex', gap:10, fontSize:9, color:'var(--mu)' }}>
           <span style={{ color:'var(--gr)' }}>── Bull OB</span>
