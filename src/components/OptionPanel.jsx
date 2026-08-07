@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const fmt = n => n != null ? Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
 const pct = n => n != null ? (n > 0 ? '+' : '') + n.toFixed(1) + '%' : '—';
@@ -14,12 +14,16 @@ function Cell({ label, value, color = 'var(--tx)' }) {
 
 export default function OptionPanel({ scrip }) {
   const sig = scrip?.signal || {};
-  const advice = sig.optionAdvice;
+  const ladders = sig.optionAdvice;   // { bullish, bearish, autoSide }
+
+  // 'auto' follows the system's own direction. 'bullish'/'bearish' = manual override.
+  const [mode, setMode] = useState('auto');
+  useEffect(() => { setMode('auto'); }, [scrip?.symbol]);  // reset toggle when switching scrips
+
   const trendUp = scrip?.trend === 'up';
   const fired = sig.fired;
   const conf  = sig.confidence || 0;
 
-  // Dramatic headline — merged in from the old TrendPanel
   let headline, headColor;
   if (fired) {
     headline  = (conf >= 85 ? 'STRONG ' : '') + (trendUp ? 'BUY CALL' : 'BUY PUT');
@@ -32,7 +36,7 @@ export default function OptionPanel({ scrip }) {
     headColor = 'var(--mu)';
   }
 
-  if (!advice) return (
+  if (!ladders) return (
     <div style={{ display:'flex', flexDirection:'column', gap:8, height:'100%' }}>
       <div style={{ fontSize:20, fontWeight:800, color:headColor }}>{headline}</div>
       <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--mu)', fontSize:11, textAlign:'center' }}>
@@ -41,10 +45,17 @@ export default function OptionPanel({ scrip }) {
     </div>
   );
 
+  const activeSide = mode === 'auto' ? ladders.autoSide : mode;
+  const advice = ladders[activeSide];
+  const isAutoMatch = activeSide === ladders.autoSide;
+
+  if (!advice) return (
+    <div style={{ padding:12, color:'var(--mu)', fontSize:11 }}>No {activeSide} option data available</div>
+  );
+
   const r   = advice.recommendation;
   const m   = r?.metrics;
   const alt = advice.alternatives || [];
-  const isSignalBased = advice.signalBased;
   const isCE = advice.optionType === 'CE';
   if (!r || !m) return null;
 
@@ -53,18 +64,40 @@ export default function OptionPanel({ scrip }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:8, height:'100%', minHeight:0 }}>
 
-      {/* Headline */}
-      <div style={{ flexShrink:0 }}>
-        <div style={{ fontSize:20, fontWeight:800, letterSpacing:.5, color:headColor, lineHeight:1.1 }}>{headline}</div>
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}>
-          <span style={{ fontSize:9, padding:'2px 7px', borderRadius:4, background:'var(--s2)', border:'1px solid var(--bd)', color:'var(--cy)', fontWeight:700 }}>
-            {sig.scoreLabel} · {conf}%
-          </span>
-          <span style={{ fontSize:9, fontWeight:700, color: isSignalBased?'var(--gr)':'var(--am)' }}>
-            {isSignalBased ? '✓ Signal confirmed' : '⚠ Direction only — size down'}
-          </span>
+      {/* Headline + CE/PE toggle */}
+      <div style={{ flexShrink:0, display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+        <div>
+          <div style={{ fontSize:19, fontWeight:800, letterSpacing:.5, color:headColor, lineHeight:1.1 }}>{headline}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
+            <span style={{ fontSize:9, padding:'2px 7px', borderRadius:4, background:'var(--s2)', border:'1px solid var(--bd)', color:'var(--cy)', fontWeight:700 }}>
+              {sig.scoreLabel} · {conf}%
+            </span>
+          </div>
+        </div>
+
+        {/* AUTO | CALL | PUT segmented toggle */}
+        <div style={{ display:'flex', gap:1, background:'var(--s2)', borderRadius:6, padding:2, border:'1px solid var(--bd)', flexShrink:0 }}>
+          {[
+            { key:'auto',    label:'AUTO' },
+            { key:'bullish', label:'CALL' },
+            { key:'bearish', label:'PUT'  },
+          ].map(opt => (
+            <button key={opt.key} onClick={()=>setMode(opt.key)}
+              style={{ fontSize:9, fontWeight:700, padding:'3px 8px', borderRadius:4, border:'none', cursor:'pointer',
+                background: mode===opt.key ? (opt.key==='bullish'?'var(--gr)':opt.key==='bearish'?'var(--rd)':'var(--cy)') : 'transparent',
+                color:      mode===opt.key ? '#000' : 'var(--mu)' }}>
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Manual-view note when not showing the system's own direction */}
+      {!isAutoMatch && (
+        <div style={{ fontSize:9, color:'var(--am)', background:'rgba(245,158,11,.08)', borderRadius:5, padding:'4px 8px', flexShrink:0 }}>
+          Manual view — system's own signal points {ladders.autoSide === 'bullish' ? 'up (CALL)' : 'down (PUT)'}. This is the opposite side for reference.
+        </div>
+      )}
 
       {/* Strike + IV */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexShrink:0 }}>
@@ -106,13 +139,13 @@ export default function OptionPanel({ scrip }) {
         </div>
       </div>
 
-      {/* Alternatives — compact row list */}
+      {/* Alternatives */}
       {alt.length > 0 && (
         <div style={{ flex:1, minHeight:0, overflow:'auto' }}>
           <div style={{ fontSize:9, color:'var(--mu)', marginBottom:4, letterSpacing:.5, textTransform:'uppercase' }}>Alternative strikes</div>
           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 8px', background:'rgba(59,130,246,.1)', borderRadius:5, fontSize:10 }}>
-              <span style={{ fontFamily:'monospace', fontWeight:700, color:'var(--bl)' }}>{r.strike.toLocaleString('en-IN')} ★</span>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 8px', background: isCE?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)', borderRadius:5, fontSize:10 }}>
+              <span style={{ fontFamily:'monospace', fontWeight:700, color: isCE?'var(--gr)':'var(--rd)' }}>{r.strike.toLocaleString('en-IN')} ★</span>
               <span style={{ color:'var(--tx)' }}>₹{fmt(m.ask)}</span>
               <span style={{ color:'var(--cy)' }}>Δ{m.delta}</span>
               <span style={{ color:'var(--gr)' }}>{pct(m.pnlAtT1Pct)}</span>
