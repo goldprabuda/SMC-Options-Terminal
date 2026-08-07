@@ -139,28 +139,9 @@ export default function OptionPanel({ scrip }) {
         </div>
       </div>
 
-      {/* Alternatives */}
-      {alt.length > 0 && (
-        <div style={{ flex:1, minHeight:0, overflow:'auto' }}>
-          <div style={{ fontSize:9, color:'var(--mu)', marginBottom:4, letterSpacing:.5, textTransform:'uppercase' }}>Alternative strikes</div>
-          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 8px', background: isCE?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)', borderRadius:5, fontSize:10 }}>
-              <span style={{ fontFamily:'monospace', fontWeight:700, color: isCE?'var(--gr)':'var(--rd)' }}>{r.strike.toLocaleString('en-IN')} ★</span>
-              <span style={{ color:'var(--tx)' }}>₹{fmt(m.ask)}</span>
-              <span style={{ color:'var(--cy)' }}>Δ{m.delta}</span>
-              <span style={{ color:'var(--gr)' }}>{pct(m.pnlAtT1Pct)}</span>
-            </div>
-            {alt.map(a => (
-              <div key={a.strike} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 8px', fontSize:10, color:'var(--mu)' }}>
-                <span style={{ fontFamily:'monospace' }}>{a.strike.toLocaleString('en-IN')}</span>
-                <span>₹{fmt(a.metrics.ask)}</span>
-                <span>Δ{a.metrics.delta}</span>
-                <span>{pct(a.metrics.pnlAtT1Pct)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div style={{ fontSize:9, color:'var(--mu)', marginTop:'auto', flexShrink:0 }}>
+        See Alternatives panel for more strikes →
+      </div>
     </div>
   );
 }
