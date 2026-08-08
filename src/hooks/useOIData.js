@@ -13,23 +13,45 @@ export function useOIData(symbol) {
   const [refreshSec, setRefreshSec] = useState(60);
   const timerRef = useRef(null);
   const tickRef  = useRef(null);
+  const reqIdRef = useRef(0);   // guards against a stale/slow response overwriting a newer one
+
+  const fetchOnce = useCallback((sym) => {
+    return fetch('/api/oi?symbol=' + encodeURIComponent(sym) + '&_t=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.json());
+  }, []);
 
   const load = useCallback(() => {
     if (!symbol) return;
+    const myReqId = ++reqIdRef.current;
+    const mySymbol = symbol;
     setLoading(true);
-    fetch('/api/oi?symbol=' + encodeURIComponent(symbol) + '&_t=' + Date.now(), { cache:'no-store' })
-      .then(r => r.json())
-      .then(d => { if (d.error) setError(d.error); else { setData(d); setError(null); setSecsAgo(0); } })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [symbol]);
+
+    fetchOnce(mySymbol)
+      .then(d => {
+        if (reqIdRef.current !== myReqId) return;  // a newer request already superseded this one
+        if (!d.error) { setData(d); setError(null); setSecsAgo(0); return; }
+        // One retry on failure — NIFTY/BANKNIFTY genuinely having no chain is rare,
+        // this is usually a transient Dhan hiccup rather than a real absence.
+        return fetchOnce(mySymbol).then(d2 => {
+          if (reqIdRef.current !== myReqId) return;
+          if (!d2.error) { setData(d2); setError(null); setSecsAgo(0); }
+          else { setError(d2.error); setData(null); }  // clear stale data on confirmed failure
+        });
+      })
+      .catch(e => { if (reqIdRef.current === myReqId) { setError(e.message); setData(null); } })
+      .finally(() => { if (reqIdRef.current === myReqId) setLoading(false); });
+  }, [symbol, fetchOnce]);
 
   useEffect(() => {
+    // Clear immediately on symbol change — never show a previous symbol's
+    // data underneath a new symbol's loading/error state.
+    setData(null);
+    setError(null);
     load();
     clearInterval(timerRef.current);
     timerRef.current = window.setInterval(load, refreshSec * 1000);
     return () => window.clearInterval(timerRef.current);
-  }, [load, refreshSec]);
+  }, [symbol, refreshSec, load]);
 
   useEffect(() => {
     clearInterval(tickRef.current);
