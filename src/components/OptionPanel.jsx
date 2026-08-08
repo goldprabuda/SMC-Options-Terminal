@@ -123,9 +123,9 @@ export default function OptionPanel({ scrip }) {
         <div style={{ fontSize:9, color:'var(--mu)', marginBottom:5, letterSpacing:.5, textTransform:'uppercase' }}>Expected P&amp;L</div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
           {[
-            { l:'T1', p:m.pnlAtT1Pct, a:m.pnlAtT1, d:m.daysToT1 },
-            { l:'T2', p:m.pnlAtT2Pct, a:m.pnlAtT2, d:m.daysToT2 },
-            { l:'SL', p:m.pnlAtSLPct, a:m.pnlAtSL, d:1 },
+            { l:'T1', p:m.pnlAtT1Pct, a:m.pnlAtT1, d:m.daysToT1, beyond:m.t1BeyondExpiry, natural:m.t1NaturalDays },
+            { l:'T2', p:m.pnlAtT2Pct, a:m.pnlAtT2, d:m.daysToT2, beyond:m.t2BeyondExpiry, natural:m.t2NaturalDays },
+            { l:'SL', p:m.pnlAtSLPct, a:m.pnlAtSL, d:1, beyond:false },
           ].map(row => {
             const c = row.p>=0 ? 'var(--gr)' : 'var(--rd)';
             return (
@@ -133,6 +133,12 @@ export default function OptionPanel({ scrip }) {
                 <div style={{ fontSize:9, color:'var(--mu)' }}>{row.l} ({row.d}d)</div>
                 <div style={{ fontFamily:'monospace', fontSize:13, fontWeight:700, color:c }}>{pct(row.p)}</div>
                 <div style={{ fontSize:9, color:'var(--mu)' }}>₹{fmt(row.a)}</div>
+                {row.beyond && (
+                  <div title={'Needs ~'+row.natural+' days at current pace, but only '+row.d+' left before expiry'}
+                    style={{ fontSize:8, color:'var(--am)', marginTop:2, cursor:'default' }}>
+                    ⚠ beyond expiry pace
+                  </div>
+                )}
               </div>
             );
           })}
