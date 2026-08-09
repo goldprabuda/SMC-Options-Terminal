@@ -10,6 +10,9 @@ import AlternativesPanel  from './components/AlternativesPanel';
 import OIMoversCard       from './components/OIMoversCard';
 import OIMatrix           from './components/OIMatrix';
 
+const ZOOM_STEPS = [0.85, 0.9, 1, 1.1, 1.2, 1.3, 1.4];
+const ZOOM_KEY = 'smc_ui_zoom';
+
 function ScripTab({ scrip, active, onClick }) {
   const fired = scrip.signal?.fired;
   const score = scrip.signal?.confidence || 0;
@@ -34,6 +37,20 @@ function Clock() {
     u(); const id = window.setInterval(u,1000); return () => window.clearInterval(id);
   },[]);
   return <span style={{ fontFamily:'monospace',fontSize:11,color:'var(--cy)',flexShrink:0 }}>IST {t}</span>;
+}
+
+function ZoomControl({ zoom, setZoom }) {
+  const idx = ZOOM_STEPS.indexOf(zoom);
+  const dec = () => setZoom(ZOOM_STEPS[Math.max(0, idx - 1)]);
+  const inc = () => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, idx + 1)]);
+  const reset = () => setZoom(1);
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:2, background:'var(--s2)', borderRadius:6, padding:2, border:'1px solid var(--bd)', flexShrink:0 }}>
+      <button onClick={dec} title="Zoom out" style={{ width:22, height:20, fontSize:13, fontWeight:700, border:'none', background:'transparent', color:'var(--mu)', cursor:'pointer', borderRadius:4 }}>−</button>
+      <button onClick={reset} title="Reset zoom" style={{ fontSize:9, fontFamily:'monospace', padding:'0 6px', height:20, border:'none', background:'transparent', color:'var(--tx)', cursor:'pointer' }}>{Math.round(zoom*100)}%</button>
+      <button onClick={inc} title="Zoom in" style={{ width:22, height:20, fontSize:13, fontWeight:700, border:'none', background:'transparent', color:'var(--mu)', cursor:'pointer', borderRadius:4 }}>+</button>
+    </div>
+  );
 }
 
 function Cell({ area, accent, children, style }) {
@@ -79,12 +96,16 @@ function LoadingBox() {
 export default function App() {
   const { data, error: listError, loading: listLoading } = useMarketData(300);
   const [active, setActive] = useState(null);
+  const [zoom, setZoomState] = useState(() => {
+    try { return Number(localStorage.getItem(ZOOM_KEY)) || 1; } catch (_) { return 1; }
+  });
+  const setZoom = (z) => { setZoomState(z); try { localStorage.setItem(ZOOM_KEY, String(z)); } catch (_) {} };
 
   const scrips = data?.scrips || [];
   useEffect(() => { if (!active && scrips.length) setActive(scrips[0].symbol); }, [scrips]);
 
   const { data: live, error: liveError, loading: liveLoading, secsAgo, refresh } = useLiveAnalysis(active);
-  const oi = useOIData(active);   // shared: feeds both OIMatrix and OIMoversCard
+  const oi = useOIData(active);
 
   if (listError) return (
     <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',
@@ -98,15 +119,19 @@ export default function App() {
   const optAccent = sig?.optionAdvice ? (sig.optionAdvice[sig.optionAdvice.autoSide]?.optionType==='CE' ? 'var(--gr)' : 'var(--rd)') : 'var(--bd)';
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', overflow:'hidden' }}>
+    // CSS zoom (not transform) reflows the whole layout properly, unlike
+    // browser page zoom which fights our fixed-width columns and overflow:hidden.
+    <div style={{ zoom, height:'100%' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', overflow:'auto' }}>
       <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 16px', background:'var(--s1)', borderBottom:'1px solid var(--bd)', flexShrink:0 }}>
         <span style={{ fontFamily:'monospace', fontSize:15, fontWeight:700, color:'#fff', letterSpacing:2, flexShrink:0 }}>SMC · INDEX OPTIONS</span>
-        <div style={{ display:'flex', gap:3, flex:1 }}>
+        <div style={{ display:'flex', gap:3, flex:1, overflowX:'auto' }}>
           {scrips.map(s => <ScripTab key={s.symbol} scrip={s} active={s.symbol===active} onClick={()=>setActive(s.symbol)} />)}
         </div>
+        <ZoomControl zoom={zoom} setZoom={setZoom} />
         <Clock />
       </div>
 
@@ -116,18 +141,19 @@ export default function App() {
       ) : !active ? (
         <div style={{ display:'flex',alignItems:'center',justifyContent:'center',flex:1,color:'var(--mu)',fontSize:12 }}>No index scrips active — check watchlist</div>
       ) : (
-        // No chart, no AI narrative panel. OI matrix stays the wide centerpiece.
-        // Left: Checklist (options-specific, grouped) + Option (single recommended strike).
-        // Right: Recommendation verdict + Levels + Alternatives (expanded) + OI Movers.
+        // Center column now stacks: Recommendation (compact) → OI Matrix (main) → OI Movers (compact)
+        // Right column keeps only: Levels → Alternatives (more room for each now)
         <div style={{
           display:'grid',
-          gridTemplateColumns: '260px 1fr 260px',
-          gridTemplateRows:    '20px 1fr',
+          gridTemplateColumns: 'minmax(240px,260px) minmax(500px,1fr) minmax(240px,280px)',
+          gridTemplateRows:    '20px auto 1fr auto',
           gridTemplateAreas: `
             "status status status"
+            "left   rec    right"
             "left   oi     right"
+            "left   movers right"
           `,
-          gap:8, padding:10, flex:1, minHeight:0, minWidth:0, overflow:'hidden',
+          gap:8, padding:10, flex:1, minHeight:600, minWidth:0,
         }}>
           <LiveStatus loading={liveLoading} error={liveError} secsAgo={secsAgo} onRefresh={refresh} />
 
@@ -136,34 +162,35 @@ export default function App() {
             <Cell accent={signalAccent}>
               {liveLoading && !live ? <LoadingBox /> : <ChecklistPanel scrip={live} />}
             </Cell>
-            <Cell accent={optAccent} style={{ maxHeight:280 }}>
+            <Cell accent={optAccent} style={{ maxHeight:300 }}>
               {liveLoading && !live ? <LoadingBox /> : <OptionPanel scrip={live} />}
             </Cell>
           </div>
 
-          {/* Center — OI matrix */}
+          {/* Center — Recommendation (compact) above OI Matrix, OI Movers below */}
+          <Cell area="rec" accent={sig?.fired ? 'var(--gr)' : 'var(--am)'} style={{ minHeight:56 }}>
+            {liveLoading && !live ? <LoadingBox /> : <RecommendationCard scrip={live} compact />}
+          </Cell>
           <Cell area="oi" accent="var(--cy)">
             <OIMatrix symbol={active} {...oi} />
           </Cell>
+          <Cell area="movers" accent="var(--am)" style={{ minHeight:150, maxHeight:220 }}>
+            <OIMoversCard oiData={oi.data} />
+          </Cell>
 
-          {/* Right column — Recommendation / Levels / Alternatives / OI Movers */}
-          <div style={{ gridArea:'right', display:'grid', gridTemplateRows:'auto auto 1fr auto', gap:8, minHeight:0 }}>
-            <Cell accent={sig?.fired ? 'var(--gr)' : 'var(--am)'} style={{ maxHeight:150 }}>
-              {liveLoading && !live ? <LoadingBox /> : <RecommendationCard scrip={live} />}
-            </Cell>
-            <Cell accent="var(--bd)" style={{ maxHeight:150 }}>
+          {/* Right column — Levels + Alternatives, more room now */}
+          <div style={{ gridArea:'right', display:'grid', gridTemplateRows:'auto 1fr', gap:8, minHeight:0 }}>
+            <Cell accent="var(--bd)" style={{ maxHeight:200 }}>
               {liveLoading && !live ? <LoadingBox /> : <LevelsPanel scrip={live} />}
             </Cell>
             <Cell accent="var(--bl)">
               {liveLoading && !live ? <LoadingBox /> : <AlternativesPanel scrip={live} />}
             </Cell>
-            <Cell accent="var(--am)" style={{ maxHeight:220 }}>
-              <OIMoversCard oiData={oi.data} />
-            </Cell>
           </div>
 
         </div>
       )}
+    </div>
     </div>
   );
 }
