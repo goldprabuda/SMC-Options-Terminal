@@ -40,7 +40,7 @@ export default function OptionPanel({ scrip }) {
     <div style={{ display:'flex', flexDirection:'column', gap:8, height:'100%' }}>
       <div style={{ fontSize:20, fontWeight:800, color:headColor }}>{headline}</div>
       <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--mu)', fontSize:11, textAlign:'center' }}>
-        Option data loads after cron refresh
+        Fetching option chain — usually clears on next refresh (~1-2 min)
       </div>
     </div>
   );
