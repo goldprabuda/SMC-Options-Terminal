@@ -11,9 +11,10 @@ export function useOIData(symbol) {
   const [loading, setLoading] = useState(false);
   const [secsAgo, setSecsAgo] = useState(0);
   const [refreshSec, setRefreshSec] = useState(60);
-  const timerRef = useRef(null);
-  const tickRef  = useRef(null);
-  const reqIdRef = useRef(0);   // guards against a stale/slow response overwriting a newer one
+  const timerRef  = useRef(null);
+  const tickRef   = useRef(null);
+  const staggerRef = useRef(null);
+  const reqIdRef  = useRef(0);   // guards against a stale/slow response overwriting a newer one
 
   const fetchOnce = useCallback((sym) => {
     return fetch('/api/oi?symbol=' + encodeURIComponent(sym) + '&_t=' + Date.now(), { cache: 'no-store' })
@@ -47,10 +48,19 @@ export function useOIData(symbol) {
     // data underneath a new symbol's loading/error state.
     setData(null);
     setError(null);
-    load();
     clearInterval(timerRef.current);
+    clearTimeout(staggerRef.current);
+
+    // Stagger the FIRST fetch after a symbol switch by 5s. useLiveAnalysis
+    // fires ~5 sequential Dhan calls the instant a symbol is selected; firing
+    // this hook's Dhan calls at the exact same moment collides with Dhan's
+    // rate limit and silently drops the option chain data inside live-analyze.
+    // The periodic refresh (every refreshSec) is NOT delayed — only the
+    // initial burst on symbol change, since by then live-analyze has cleared.
+    staggerRef.current = window.setTimeout(load, 5000);
     timerRef.current = window.setInterval(load, refreshSec * 1000);
-    return () => window.clearInterval(timerRef.current);
+
+    return () => { window.clearTimeout(staggerRef.current); window.clearInterval(timerRef.current); };
   }, [symbol, refreshSec, load]);
 
   useEffect(() => {
