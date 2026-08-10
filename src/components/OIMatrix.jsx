@@ -9,7 +9,7 @@ function ChangeLabel({ pct }) {
   return <span style={{ color }}>{pct > 0 ? '+' : ''}{pct}%</span>;
 }
 
-function StrikeRow({ row }) {
+function StrikeRow({ row, symbol, onSelect }) {
   const maxOI = Math.max(row.ceOI || 0, row.peOI || 0, 1);
   const cePct = Math.round(((row.ceOI||0)/maxOI)*100);
   const pePct = Math.round(((row.peOI||0)/maxOI)*100);
@@ -18,7 +18,8 @@ function StrikeRow({ row }) {
       padding: row.isATM ? '7px 6px' : '5px 6px', borderRadius:6,
       background: row.isATM ? 'rgba(59,130,246,.12)' : 'transparent',
       border: row.isATM ? '1px solid rgba(59,130,246,.35)' : '1px solid transparent' }}>
-      <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--tx)', textAlign:'right' }}>{fmtL(row.ceOI)}</span>
+      <span onClick={()=>onSelect({symbol, strike:row.strike, type:'CE'})} title="Click to see today's OI history for this strike"
+        style={{ fontFamily:'monospace', fontSize:10, color:'var(--gr)', textAlign:'right', cursor:'pointer', textDecoration:'underline dotted' }}>{fmtL(row.ceOI)}</span>
       <span style={{ fontSize:9, textAlign:'right' }}><ChangeLabel pct={row.ceChangePct} /></span>
       <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--cy)', textAlign:'right' }}>{row.ceDelta ?? '—'}</span>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
@@ -34,7 +35,8 @@ function StrikeRow({ row }) {
       </div>
       <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--cy)' }}>{row.peDelta ?? '—'}</span>
       <span style={{ fontSize:9 }}><ChangeLabel pct={row.peChangePct} /></span>
-      <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--tx)' }}>{fmtL(row.peOI)}</span>
+      <span onClick={()=>onSelect({symbol, strike:row.strike, type:'PE'})} title="Click to see today's OI history for this strike"
+        style={{ fontFamily:'monospace', fontSize:10, color:'var(--rd)', cursor:'pointer', textDecoration:'underline dotted' }}>{fmtL(row.peOI)}</span>
     </div>
   );
 }
@@ -74,7 +76,7 @@ function SummaryCell({ label, value, color }) {
 
 // Now a CONTROLLED component — receives data/loading/error/refresh as props
 // from the shared useOIData hook in App.jsx (no longer fetches on its own).
-export default function OIMatrix({ symbol, data, error, loading, secsAgo, refreshSec, setRefreshSec, REFRESH_OPTIONS }) {
+export default function OIMatrix({ symbol, data, error, loading, secsAgo, refreshSec, setRefreshSec, REFRESH_OPTIONS, onSelectStrike }) {
   if (!symbol) return null;
 
   return (
@@ -132,11 +134,12 @@ export default function OIMatrix({ symbol, data, error, loading, secsAgo, refres
             <span style={{ textAlign:'center' }}>STRIKE</span>
             <span>Delta</span>
             <span>Δ%</span>
-            <span>PE OI</span>
+            <span>PE OI</span></div>
+          <div style={{ fontSize:8, color:'var(--mu)', flexShrink:0, padding:'0 6px' }}>Click any OI number to see today's history for that strike
           </div>
 
           <div style={{ flex:1, minHeight:0, overflow:'auto', display:'flex', flexDirection:'column', gap:2 }}>
-            {data.strikes?.map(row => <StrikeRow key={row.strike} row={row} />)}
+            {data.strikes?.map(row => <StrikeRow key={row.strike} row={row} symbol={symbol} onSelect={onSelectStrike} />)}
           </div>
 
           <div style={{ fontSize:8, color:'var(--mu)', flexShrink:0, lineHeight:1.4 }}>{data._note}</div>
