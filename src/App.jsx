@@ -8,6 +8,7 @@ import LevelsPanel        from './components/LevelsPanel';
 import RecommendationCard from './components/RecommendationCard';
 import AlternativesPanel  from './components/AlternativesPanel';
 import OIMoversCard       from './components/OIMoversCard';
+import OIHistoryPanel     from './components/OIHistoryPanel';
 import OIMatrix           from './components/OIMatrix';
 
 const ZOOM_STEPS = [0.85, 0.9, 1, 1.1, 1.2, 1.3, 1.4];
@@ -96,6 +97,7 @@ function LoadingBox() {
 export default function App() {
   const { data, error: listError, loading: listLoading } = useMarketData(300);
   const [active, setActive] = useState(null);
+  const [selectedStrike, setSelectedStrike] = useState(null);
   const [zoom, setZoomState] = useState(() => {
     try { return Number(localStorage.getItem(ZOOM_KEY)) || 1; } catch (_) { return 1; }
   });
@@ -103,6 +105,7 @@ export default function App() {
 
   const scrips = data?.scrips || [];
   useEffect(() => { if (!active && scrips.length) setActive(scrips[0].symbol); }, [scrips]);
+  useEffect(() => { setSelectedStrike(null); }, [active]);
 
   const { data: live, error: liveError, loading: liveLoading, secsAgo, refresh } = useLiveAnalysis(active);
   const oi = useOIData(active);
@@ -172,10 +175,12 @@ export default function App() {
             {liveLoading && !live ? <LoadingBox /> : <RecommendationCard scrip={live} compact />}
           </Cell>
           <Cell area="oi" accent="var(--cy)">
-            <OIMatrix symbol={active} {...oi} />
+            <OIMatrix symbol={active} {...oi} onSelectStrike={setSelectedStrike} />
           </Cell>
           <Cell area="movers" accent="var(--am)" style={{ minHeight:150, maxHeight:220 }}>
-            <OIMoversCard oiData={oi.data} />
+            {selectedStrike
+              ? <OIHistoryPanel selected={selectedStrike} onClose={()=>setSelectedStrike(null)} />
+              : <OIMoversCard oiData={oi.data} />}
           </Cell>
 
           {/* Right column — Levels + Alternatives, more room now */}
