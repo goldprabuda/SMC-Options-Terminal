@@ -18,15 +18,15 @@ function StrikeRow({ row, symbol, onSelect }) {
       padding: row.isATM ? '7px 6px' : '5px 6px', borderRadius:6,
       background: row.isATM ? 'rgba(59,130,246,.12)' : 'transparent',
       border: row.isATM ? '1px solid rgba(59,130,246,.35)' : '1px solid transparent' }}>
-      <span onClick={()=>onSelect({symbol, strike:row.strike, type:'CE'})} title="Click to see today's OI history for this strike"
-        style={{ fontFamily:'monospace', fontSize:10, color:'var(--gr)', textAlign:'right', cursor:'pointer', textDecoration:'underline dotted' }}>{fmtL(row.ceOI)}</span>
+      <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--tx)', textAlign:'right' }}>{fmtL(row.ceOI)}</span>
       <span style={{ fontSize:9, textAlign:'right' }}><ChangeLabel pct={row.ceChangePct} /></span>
       <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--cy)', textAlign:'right' }}>{row.ceDelta ?? '—'}</span>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
+      <div onClick={()=>onSelect({symbol, strike:row.strike})} title="Click to see CE + PE history together for this strike"
+        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, cursor:'pointer' }}>
         <div style={{ width:28, height:8, background:'var(--s1)', borderRadius:2, overflow:'hidden', transform:'scaleX(-1)' }}>
           <div style={{ height:8, width:cePct+'%', background:'rgba(34,197,94,.6)' }} />
         </div>
-        <span style={{ fontFamily:'monospace', fontSize:12, fontWeight: row.isATM?800:600, color: row.isATM?'var(--bl)':'var(--tx)' }}>
+        <span style={{ fontFamily:'monospace', fontSize:12, fontWeight: row.isATM?800:600, color: row.isATM?'var(--bl)':'var(--tx)', textDecoration:'underline dotted' }}>
           {row.strike.toLocaleString('en-IN')}
         </span>
         <div style={{ width:28, height:8, background:'var(--s1)', borderRadius:2, overflow:'hidden' }}>
@@ -35,8 +35,7 @@ function StrikeRow({ row, symbol, onSelect }) {
       </div>
       <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--cy)' }}>{row.peDelta ?? '—'}</span>
       <span style={{ fontSize:9 }}><ChangeLabel pct={row.peChangePct} /></span>
-      <span onClick={()=>onSelect({symbol, strike:row.strike, type:'PE'})} title="Click to see today's OI history for this strike"
-        style={{ fontFamily:'monospace', fontSize:10, color:'var(--rd)', cursor:'pointer', textDecoration:'underline dotted' }}>{fmtL(row.peOI)}</span>
+      <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--tx)' }}>{fmtL(row.peOI)}</span>
     </div>
   );
 }
@@ -135,7 +134,7 @@ export default function OIMatrix({ symbol, data, error, loading, secsAgo, refres
             <span>Delta</span>
             <span>Δ%</span>
             <span>PE OI</span></div>
-          <div style={{ fontSize:8, color:'var(--mu)', flexShrink:0, padding:'0 6px' }}>Click any OI number to see today's history for that strike
+          <div style={{ fontSize:8, color:'var(--mu)', flexShrink:0, padding:'0 6px' }}>Click any strike price to see combined CE + PE history
           </div>
 
           <div style={{ flex:1, minHeight:0, overflow:'auto', display:'flex', flexDirection:'column', gap:2 }}>
