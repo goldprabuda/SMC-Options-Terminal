@@ -14,13 +14,11 @@ import CollapsibleCard     from './components/CollapsibleCard';
 
 const ZOOM_STEPS = [0.85, 0.9, 1, 1.1, 1.2, 1.3, 1.4];
 const ZOOM_KEY = 'smc_ui_zoom';
+const THEME_KEY = 'smc_ui_theme';
 
-// Tracks each symbol's previous price across polls so the tab bar can show
-// a real up/down arrow — not just a static number.
 function usePriceDirection(scrips) {
   const prevRef = useRef({});
   const [directions, setDirections] = useState({});
-
   useEffect(() => {
     if (!scrips.length) return;
     const next = {};
@@ -34,7 +32,6 @@ function usePriceDirection(scrips) {
     setDirections(prev => ({ ...prev, ...next }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrips]);
-
   return directions;
 }
 
@@ -43,10 +40,9 @@ function ScripTab({ scrip, active, direction, onClick }) {
   const score = scrip.signal?.confidence || 0;
   const priceColor = direction === 'up' ? 'var(--gr)' : direction === 'down' ? 'var(--rd)' : 'var(--mu)';
   const arrow = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '';
-
   return (
     <button onClick={onClick} style={{ display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:6,border:'none',
-      background:active?'var(--s2)':'transparent',color:active?'#fff':'var(--mu)',cursor:'pointer',
+      background:active?'var(--s2)':'transparent',color:active?'var(--tx)':'var(--mu)',cursor:'pointer',
       flexShrink:0,fontSize:12,fontFamily:'monospace',fontWeight:700,
       borderBottom:active?'2px solid var(--cy)':'2px solid transparent' }}>
       <span style={{ width:7,height:7,borderRadius:'50%',flexShrink:0,
@@ -86,6 +82,20 @@ function ZoomControl({ zoom, setZoom }) {
   );
 }
 
+function ThemeToggle({ theme, setTheme }) {
+  return (
+    <div style={{ display:'flex', gap:2, background:'var(--s2)', borderRadius:6, padding:2, border:'1px solid var(--bd)', flexShrink:0 }}>
+      {[{key:'dark',label:'🌙'},{key:'light',label:'☀️'}].map(opt => (
+        <button key={opt.key} onClick={()=>setTheme(opt.key)} title={opt.key === 'dark' ? 'Soft blue dark theme' : 'Light theme'}
+          style={{ width:26, height:20, fontSize:11, border:'none', borderRadius:4, cursor:'pointer',
+            background: theme===opt.key ? 'var(--bl)' : 'transparent' }}>
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function LoadingBox() {
   return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8, color:'var(--mu)', fontSize:11, minHeight:80 }}>
@@ -102,6 +112,13 @@ export default function App() {
   const [heroTab, setHeroTab] = useState('live');
   const [zoom, setZoomState] = useState(() => { try { return Number(localStorage.getItem(ZOOM_KEY)) || 1; } catch (_) { return 1; } });
   const setZoom = (z) => { setZoomState(z); try { localStorage.setItem(ZOOM_KEY, String(z)); } catch (_) {} };
+
+  const [theme, setThemeState] = useState(() => { try { return localStorage.getItem(THEME_KEY) || 'dark'; } catch (_) { return 'dark'; } });
+  const setTheme = (t) => { setThemeState(t); try { localStorage.setItem(THEME_KEY, t); } catch (_) {} };
+  useEffect(() => {
+    if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
+  }, [theme]);
 
   const scrips = data?.scrips || [];
   const priceDirections = usePriceDirection(scrips);
@@ -139,12 +156,12 @@ export default function App() {
         @media (max-width: 520px) { .ref-row { grid-template-columns: 1fr; } .header-brand { display:none; } }
       `}</style>
 
-      {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'var(--s1)', borderBottom:'1px solid var(--bd)', flexShrink:0 }}>
-        <span className="header-brand" style={{ fontFamily:'monospace', fontSize:14, fontWeight:700, color:'#fff', letterSpacing:2, flexShrink:0 }}>SMC</span>
+        <span className="header-brand" style={{ fontFamily:'monospace', fontSize:14, fontWeight:700, color:'var(--tx)', letterSpacing:2, flexShrink:0 }}>SMC</span>
         <div style={{ display:'flex', gap:3, flex:1, overflowX:'auto' }}>
           {scrips.map(s => <ScripTab key={s.symbol} scrip={s} active={s.symbol===active} direction={priceDirections[s.symbol]} onClick={()=>setActive(s.symbol)} />)}
         </div>
+        <ThemeToggle theme={theme} setTheme={setTheme} />
         <ZoomControl zoom={zoom} setZoom={setZoom} />
         <Clock />
       </div>
@@ -159,11 +176,11 @@ export default function App() {
 
           <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderTop:'2px solid var(--cy)', borderRadius:8, padding:'10px 12px', display:'flex', flexDirection:'column', minHeight:400, overflow:'hidden' }}>
             <div className="hero-tabs" style={{ display:'flex', gap:2, marginBottom:8, flexShrink:0 }}>
-              <button onClick={()=>setHeroTab('live')} style={{ background: heroTab==='live'?'var(--cy)':'var(--s2)', color: heroTab==='live'?'#000':'var(--mu)' }}>LIVE OI</button>
-              <button onClick={()=>setHeroTab('history')} style={{ background: heroTab==='history'?'var(--cy)':'var(--s2)', color: heroTab==='history'?'#000':'var(--mu)' }}>
+              <button onClick={()=>setHeroTab('live')} style={{ background: heroTab==='live'?'var(--cy)':'var(--s2)', color: heroTab==='live'?'#fff':'var(--mu)' }}>LIVE OI</button>
+              <button onClick={()=>setHeroTab('history')} style={{ background: heroTab==='history'?'var(--cy)':'var(--s2)', color: heroTab==='history'?'#fff':'var(--mu)' }}>
                 STRIKE HISTORY {selectedStrike ? '· ' + selectedStrike.strike : ''}
               </button>
-              <button onClick={()=>setHeroTab('flow')} style={{ background: heroTab==='flow'?'var(--cy)':'var(--s2)', color: heroTab==='flow'?'#000':'var(--mu)' }}>OI FLOW</button>
+              <button onClick={()=>setHeroTab('flow')} style={{ background: heroTab==='flow'?'var(--cy)':'var(--s2)', color: heroTab==='flow'?'#fff':'var(--mu)' }}>OI FLOW</button>
             </div>
             <div style={{ flex:1, minHeight:0, overflow:'hidden' }}>
               {heroTab === 'live' && <OIMatrix symbol={active} {...oi} onSelectStrike={handleSelectStrike} />}
