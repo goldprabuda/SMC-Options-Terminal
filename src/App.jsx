@@ -6,9 +6,9 @@ import ChecklistPanel     from './components/ChecklistPanel';
 import OptionPanel        from './components/OptionPanel';
 import LevelsPanel        from './components/LevelsPanel';
 import RecommendationCard from './components/RecommendationCard';
-import AlternativesPanel  from './components/AlternativesPanel';
 import OIMatrix            from './components/OIMatrix';
 import OIHistoryPanel      from './components/OIHistoryPanel';
+import OIFlowTable         from './components/OIFlowTable';
 import SignalScoreBar      from './components/SignalScoreBar';
 import CollapsibleCard     from './components/CollapsibleCard';
 
@@ -68,7 +68,7 @@ export default function App() {
   const { data, error: listError, loading: listLoading } = useMarketData(300);
   const [active, setActive] = useState(null);
   const [selectedStrike, setSelectedStrike] = useState(null);
-  const [heroTab, setHeroTab] = useState('live');  // 'live' | 'history'
+  const [heroTab, setHeroTab] = useState('live');  // 'live' | 'history' | 'flow'
   const [zoom, setZoomState] = useState(() => { try { return Number(localStorage.getItem(ZOOM_KEY)) || 1; } catch (_) { return 1; } });
   const setZoom = (z) => { setZoomState(z); try { localStorage.setItem(ZOOM_KEY, String(z)); } catch (_) {} };
 
@@ -79,7 +79,6 @@ export default function App() {
   const { data: live, error: liveError, loading: liveLoading, secsAgo, refresh } = useLiveAnalysis(active);
   const oi = useOIData(active);
 
-  // Selecting a strike in the matrix auto-switches to History — that's the point of clicking it
   const handleSelectStrike = (sel) => { setSelectedStrike(sel); setHeroTab('history'); };
 
   if (listError) return (
@@ -91,7 +90,6 @@ export default function App() {
 
   const sig = live?.signal;
   const optAccent = sig?.optionAdvice ? (sig.optionAdvice[sig.optionAdvice.autoSide]?.optionType==='CE' ? 'var(--gr)' : 'var(--rd)') : 'var(--bd)';
-  const scalpAccent = sig?.scalpAdvice ? (sig.scalpAdvice[sig.scalpAdvice.autoSide]?.optionType==='CE' ? 'var(--gr)' : 'var(--rd)') : 'var(--bd)';
   const chkClear = live?.checklist?.clearToTrade;
   const recVerdictColor = sig?.fired ? 'var(--gr)' : 'var(--am)';
 
@@ -106,7 +104,6 @@ export default function App() {
         .hero-tabs button { font-size:11px; font-weight:700; padding:6px 16px; border-radius:6px; border:none; cursor:pointer; }
         @media (max-width: 820px) {
           .ref-row { grid-template-columns: 1fr 1fr; }
-          .scrip-tabs { flex-wrap: nowrap; }
         }
         @media (max-width: 520px) {
           .ref-row { grid-template-columns: 1fr; }
@@ -117,7 +114,7 @@ export default function App() {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'var(--s1)', borderBottom:'1px solid var(--bd)', flexShrink:0 }}>
         <span className="header-brand" style={{ fontFamily:'monospace', fontSize:14, fontWeight:700, color:'#fff', letterSpacing:2, flexShrink:0 }}>SMC</span>
-        <div className="scrip-tabs" style={{ display:'flex', gap:3, flex:1, overflowX:'auto' }}>
+        <div style={{ display:'flex', gap:3, flex:1, overflowX:'auto' }}>
           {scrips.map(s => <ScripTab key={s.symbol} scrip={s} active={s.symbol===active} onClick={()=>setActive(s.symbol)} />)}
         </div>
         <ZoomControl zoom={zoom} setZoom={setZoom} />
@@ -134,13 +131,14 @@ export default function App() {
           {/* Row 1 — signal score, one line */}
           <SignalScoreBar scrip={live} />
 
-          {/* Row 2 — HERO: LIVE / HISTORY tabs, gets almost all the space */}
+          {/* Row 2 — HERO: LIVE / HISTORY / FLOW tabs */}
           <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderTop:'2px solid var(--cy)', borderRadius:8, padding:'10px 12px', display:'flex', flexDirection:'column', minHeight:400, overflow:'hidden' }}>
             <div className="hero-tabs" style={{ display:'flex', gap:2, marginBottom:8, flexShrink:0 }}>
               <button onClick={()=>setHeroTab('live')} style={{ background: heroTab==='live'?'var(--cy)':'var(--s2)', color: heroTab==='live'?'#000':'var(--mu)' }}>LIVE OI</button>
               <button onClick={()=>setHeroTab('history')} style={{ background: heroTab==='history'?'var(--cy)':'var(--s2)', color: heroTab==='history'?'#000':'var(--mu)' }}>
-                HISTORY {selectedStrike ? '· ' + selectedStrike.strike : ''}
+                STRIKE HISTORY {selectedStrike ? '· ' + selectedStrike.strike : ''}
               </button>
+              <button onClick={()=>setHeroTab('flow')} style={{ background: heroTab==='flow'?'var(--cy)':'var(--s2)', color: heroTab==='flow'?'#000':'var(--mu)' }}>OI FLOW</button>
             </div>
             <div style={{ flex:1, minHeight:0, overflow:'hidden' }}>
               {heroTab === 'live' && <OIMatrix symbol={active} {...oi} onSelectStrike={handleSelectStrike} />}
@@ -151,6 +149,7 @@ export default function App() {
                       Click any strike price in the LIVE tab to see its history here
                     </div>
               )}
+              {heroTab === 'flow' && <OIFlowTable symbol={active} />}
             </div>
           </div>
 
