@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const fmtL = n => n != null ? (n >= 1e7 ? (n/1e7).toFixed(2)+'Cr' : n >= 1e5 ? (n/1e5).toFixed(2)+'L' : Number(n).toLocaleString('en-IN')) : '—';
-const fmtP = n => n != null ? '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
+
+const REFRESH_OPTIONS = [{ key: 60, label: '1M' }, { key: 300, label: '5M' }];
 
 function ChangeCell({ pct }) {
   if (pct == null) return <span style={{ color:'var(--mu)' }}>—</span>;
@@ -10,27 +11,42 @@ function ChangeCell({ pct }) {
 }
 
 export default function OIHistoryPanel({ selected, onClose }) {
-  const [data, setData]       = useState(null);
-  const [error, setError]     = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [data, setData]         = useState(null);
+  const [error, setError]       = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [secsAgo, setSecsAgo]   = useState(0);
+  const [refreshSec, setRefreshSec] = useState(60);
+  const timerRef = useRef(null);
+  const tickRef  = useRef(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!selected) return;
     setLoading(true);
-    setData(null);
     fetch('/api/oi-strike-history?symbol=' + encodeURIComponent(selected.symbol) +
           '&strike=' + encodeURIComponent(selected.strike) + '&_t=' + Date.now(), { cache:'no-store' })
       .then(r => r.json())
-      .then(d => { if (d.error) setError(d.error); else { setData(d); setError(null); } })
+      .then(d => { if (d.error) setError(d.error); else { setData(d); setError(null); setSecsAgo(0); } })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [selected]);
 
-  if (!selected) return null;
+  useEffect(() => {
+    setData(null); setError(null);
+    load();
+    clearInterval(timerRef.current);
+    timerRef.current = window.setInterval(load, refreshSec * 1000);
+    return () => window.clearInterval(timerRef.current);
+  }, [selected, refreshSec, load]);
 
+  useEffect(() => {
+    clearInterval(tickRef.current);
+    tickRef.current = window.setInterval(() => setSecsAgo(s => s+1), 1000);
+    return () => window.clearInterval(tickRef.current);
+  }, [selected]);
+
+  if (!selected) return null;
   const points = data?.points || [];
 
-  // Dual sparkline — CE (green) and PE (red) OI overlaid on one chart
   let sparkline = null;
   if (points.length > 1) {
     const ceVals = points.map(p => p.ceOI).filter(v => v != null);
@@ -57,20 +73,31 @@ export default function OIHistoryPanel({ selected, onClose }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:6, height:'100%', minHeight:0 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, flexWrap:'wrap', gap:6 }}>
         <span style={{ fontSize:9, color:'var(--mu)', letterSpacing:1, textTransform:'uppercase' }}>
           History — <span style={{ color:'var(--bl)' }}>{selected.strike}</span> · <span style={{ color:'var(--gr)' }}>CE</span> + <span style={{ color:'var(--rd)' }}>PE</span>
         </span>
-        <button onClick={onClose} style={{ fontSize:9, color:'var(--mu)', background:'none', border:'none', cursor:'pointer' }}>✕ back to movers</button>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:9, color:'var(--mu)', fontFamily:'monospace' }}>{loading ? 'refreshing...' : secsAgo+'s ago'}</span>
+          <div style={{ display:'flex', gap:2, background:'var(--s2)', borderRadius:6, padding:2, border:'1px solid var(--bd)' }}>
+            {REFRESH_OPTIONS.map(opt => (
+              <button key={opt.key} onClick={()=>setRefreshSec(opt.key)}
+                style={{ fontSize:9, fontWeight:700, padding:'2px 8px', borderRadius:4, border:'none', cursor:'pointer',
+                  background: refreshSec===opt.key ? 'var(--cy)' : 'transparent', color: refreshSec===opt.key ? '#000' : 'var(--mu)' }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={onClose} style={{ fontSize:9, color:'var(--mu)', background:'none', border:'none', cursor:'pointer' }}>✕ back</button>
+        </div>
       </div>
 
-      {loading && <div style={{ fontSize:10, color:'var(--mu)' }}>Loading today's history...</div>}
+      {loading && !data && <div style={{ fontSize:10, color:'var(--mu)' }}>Loading today's history...</div>}
       {error && <div style={{ fontSize:10, color:'var(--rd)' }}>{error}</div>}
 
       {data && points.length === 0 && (
         <div style={{ fontSize:10, color:'var(--mu)', padding:8, lineHeight:1.5 }}>
-          No history captured yet today for this strike. Builds up as the
-          dashboard stays open, plus a background capture every ~5 min.
+          No history captured yet today for this strike. Builds up as the dashboard stays open, plus a background capture every ~5 min.
         </div>
       )}
 
@@ -86,7 +113,6 @@ export default function OIHistoryPanel({ selected, onClose }) {
             </div>
           )}
 
-          {/* Current snapshot summary */}
           {latest && (
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, flexShrink:0 }}>
               <div style={{ background:'rgba(34,197,94,.08)', borderRadius:5, padding:'5px 7px', borderLeft:'2px solid var(--gr)' }}>
@@ -103,7 +129,6 @@ export default function OIHistoryPanel({ selected, onClose }) {
             <div style={{ fontSize:9, color:'var(--cy)', flexShrink:0 }}>Local PCR at this strike: <strong>{latest.localPCR}</strong></div>
           )}
 
-          {/* Combined table */}
           <div style={{ display:'grid', gridTemplateColumns:'42px 1fr 1fr 46px', gap:4, fontSize:7, color:'var(--mu)', padding:'0 4px', flexShrink:0 }}>
             <span>Time</span><span>CE OI (Δ%)</span><span>PE OI (Δ%)</span><span style={{ textAlign:'right' }}>PCR</span>
           </div>
